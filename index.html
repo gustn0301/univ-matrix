@@ -45,8 +45,8 @@ td textarea{border:0;border-radius:0;resize:none;min-height:56px;display:block}
 <div id="login" class="card">
   <h1>생기부 매트릭스</h1>
   <p class="sub">학번과 이름을 입력해 로그인하세요.</p>
-  <label>학번</label><input id="sid" inputmode="numeric" autocomplete="off" placeholder="예) 20201">
-  <label>이름</label><input id="sname" autocomplete="off" placeholder="이름">
+  <label>학번</label><input id="sid" inputmode="numeric" autocomplete="off" placeholder="">
+  <label>이름</label><input id="sname" autocomplete="off" placeholder="">
   <button class="pri" id="loginBtn">로그인</button>
   <div class="err" id="loginErr"></div>
 </div>
@@ -62,6 +62,11 @@ td textarea{border:0;border-radius:0;resize:none;min-height:56px;display:block}
   <p>이 내용은 바로 선생님께 전달됩니다.<br>검토하시겠습니까?</p>
   <div class="row"><button id="back">←돌아가서 검토하기</button><button class="pri" id="submit">제출하기→</button></div>
   <div class="err" id="subMsg"></div>
+</div>
+
+<div id="done" class="wrap review hide">
+  <p>제출이 완료되었습니다.</p>
+  <button class="pri" id="doneBack" style="min-width:160px">돌아가기</button>
 </div>
 
 <script type="module">
@@ -84,7 +89,7 @@ const SUBJ = {1:["국어","수학","영어","사회","과학","정보","역사"]
 const $ = id => document.getElementById(id);
 let user = null, grade = 1, data = {1:{},2:{},3:{}}, timer = null;
 
-const show = v => ["login","main","review"].forEach(x => $(x).classList.toggle("hide", x !== v));
+const show = v => ["login","main","review","done"].forEach(x => $(x).classList.toggle("hide", x !== v));
 const setStatus = t => $("status").textContent = t;
 
 // ---------- 로그인 ----------
@@ -129,7 +134,7 @@ function render(){
   const tb = $("tbl"); tb.innerHTML = "";
   SUBJ[grade].forEach((s, i) => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="k">${s}</td><td><textarea rows="2" placeholder="생기부 키워드를 입력하세요 (Enter: 다음 칸)"></textarea></td>`;
+    tr.innerHTML = `<td class="k">${s}</td><td><textarea rows="2" placeholder="생기부 키워드를 입력해주세요."></textarea></td>`;
     const ta = tr.querySelector("textarea");
     ta.value = data[grade][s] || "";
     fit(ta);
@@ -163,6 +168,7 @@ document.addEventListener("visibilitychange", () => { if(document.hidden) saveNo
 // ---------- 다음 / 검토 / 제출 ----------
 $("next").onclick = async () => { await saveNow(); $("subMsg").textContent = ""; show("review"); };
 $("back").onclick = () => show("main");
+$("doneBack").onclick = () => { grade = 1; show("main"); render(); };
 $("submit").onclick = async () => {
   const btn = $("submit"); btn.disabled = true; $("subMsg").style.color = ""; $("subMsg").textContent = "제출 중…";
   await saveNow();
@@ -170,7 +176,7 @@ $("submit").onclick = async () => {
     await fetch(SCRIPT_URL, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" },
       body: JSON.stringify({ sid:user.sid, name:user.name, grades:data }) });
     await setDoc(doc(db, "matrix", user.sid), { submittedAt:Date.now() }, { merge:true });
-    $("subMsg").style.color = "#16a34a"; $("subMsg").textContent = "제출되었습니다. 다시 제출하면 최신 내용으로 덮어써집니다.";
+    $("subMsg").textContent = ""; show("done");
   }catch(e){ $("subMsg").textContent = "제출에 실패했습니다. 다시 시도하세요."; }
   btn.disabled = false;
 };

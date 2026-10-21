@@ -33,7 +33,12 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82
 .hin{max-width:760px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;flex:1;min-width:0;white-space:nowrap}
 .who{font-size:13px;color:var(--sub);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
-#logout{padding:8px 14px;font-size:14px;border-radius:999px}
+#logout,#careerBtn{padding:8px 14px;font-size:14px;border-radius:999px;white-space:nowrap}
+.modal{position:fixed;inset:0;z-index:20;background:rgba(10,15,25,.5);backdrop-filter:blur(3px);display:grid;place-items:center;padding:18px;animation:fade .2s ease}
+@keyframes fade{from{opacity:0}}
+.mbox{width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px 24px 22px;box-shadow:var(--sh);animation:up .25s ease}
+.mbox h2{margin:0 0 6px;font-size:19px}.mbox .sub{margin-bottom:16px}
+.mbox .row{margin-top:18px}
 .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;animation:up .35s ease}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .steps{display:flex;align-items:center;gap:8px;margin:2px 0 18px;font-size:13px;color:var(--sub)}
@@ -67,6 +72,7 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82
 .row{display:flex;gap:12px}.row button{flex:1;padding:14px 8px}
 .ck path{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .5s .15s ease forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
+@media(max-width:560px){.bt{display:none}.who{max-width:30vw}#logout,#careerBtn{padding:8px 11px;font-size:13px}}
 @media(max-width:480px){.item{grid-template-columns:72px 1fr}.k{font-size:14px}.row button{font-size:14px}}
 </style>
 </head>
@@ -85,8 +91,9 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82
 </div>
 
 <header id="hdr" class="hide"><div class="hin">
-  <div class="brand"><div class="logo"><svg viewBox="0 0 100 100"><path d="M18 30h64M18 50h64M18 70h64M40 18v64" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/></svg></div>생기부 매트릭스</div>
+  <div class="brand"><div class="logo"><svg viewBox="0 0 100 100"><path d="M18 30h64M18 50h64M18 70h64M40 18v64" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/></svg></div><span class="bt">생기부 매트릭스</span></div>
   <span class="who" id="who"></span>
+  <button id="careerBtn">희망 진로 변경하기</button>
   <button id="logout">로그아웃</button>
 </div></header>
 
@@ -119,6 +126,15 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82
   </div>
 </div>
 
+<div id="careerModal" class="modal hide">
+  <div class="mbox">
+    <h2>희망 진로</h2>
+    <p class="sub">나의 희망 진로를 입력해주세요. 나중에 '희망 진로 변경하기'에서 바꿀 수 있어요.</p>
+    <input id="careerInput" autocomplete="off" maxlength="60">
+    <div class="row"><button id="careerSkip">나중에 하기</button><button class="pri" id="careerSave">저장</button></div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -136,7 +152,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqxjL0-GbxXooPsWZyw
 const db = getFirestore(initializeApp(firebaseConfig));
 const SUBJ = {1:["국어","수학","영어","사회","과학","정보","역사"],2:["국어","수학","영어","사회","과학","정보"],3:["국어","수학","영어","사회","과학","정보"]};
 const $ = id => document.getElementById(id);
-let user = null, grade = 1, data = {1:{},2:{},3:{}}, timer = null;
+let career = "", user = null, grade = 1, data = {1:{},2:{},3:{}}, timer = null;
 
 const STEP = {main:1, review:2, done:3};
 function show(v){
@@ -170,7 +186,7 @@ $("loginBtn").onclick = async () => {
   $("loginBtn").disabled = false;
 };
 ["sid","sname"].forEach(i => $(i).addEventListener("keydown", e => { if(e.key==="Enter") $("loginBtn").click(); }));
-$("logout").onclick = async () => { await saveNow(); localStorage.removeItem("sgb_user"); user = null; $("sid").value = $("sname").value = ""; show("login"); };
+$("logout").onclick = async () => { await saveNow(); localStorage.removeItem("sgb_user"); user = null; career = ""; closeCareer(); $("sid").value = $("sname").value = ""; show("login"); };
 
 async function enter(u){
   user = u; $("who").textContent = `${u.sid} ${u.name}`;
@@ -179,8 +195,10 @@ async function enter(u){
     const s = await getDoc(doc(db, "matrix", u.sid));
     if(s.exists() && s.data().grades) data = merge(s.data().grades);
     else if(local) data = merge(local);
-  }catch(e){ if(local) data = merge(local); }
+    career = (s.exists() && s.data().career) || localStorage.getItem("sgb_career_"+u.sid) || "";
+  }catch(e){ if(local) data = merge(local); career = localStorage.getItem("sgb_career_"+u.sid) || ""; }
   grade = 1; setStatus(""); show("main"); render();
+  if(!career) openCareer();
 }
 const merge = g => ({1:g[1]||{},2:g[2]||{},3:g[3]||{}});
 
@@ -212,6 +230,23 @@ function render(){
 }
 const fit = ta => { ta.style.height = "auto"; ta.style.height = Math.max(64, ta.scrollHeight) + "px"; };
 
+// ---------- 희망 진로 ----------
+function openCareer(){ $("careerInput").value = career; $("careerModal").classList.remove("hide"); setTimeout(() => $("careerInput").focus(), 50); }
+function closeCareer(){ $("careerModal").classList.add("hide"); }
+async function saveCareer(){
+  const v = $("careerInput").value.trim();
+  if(!v){ $("careerInput").focus(); return; }
+  career = v; closeCareer();
+  localStorage.setItem("sgb_career_"+user.sid, v);
+  try{ await setDoc(doc(db, "matrix", user.sid), { name:user.name, career:v }, { merge:true }); setStatus("자동 저장됨"); }
+  catch(e){ setStatus("저장 실패 – 네트워크를 확인하세요"); }
+}
+$("careerBtn").onclick = openCareer;
+$("careerSkip").onclick = closeCareer;
+$("careerSave").onclick = saveCareer;
+$("careerInput").addEventListener("keydown", e => { if(e.key==="Enter" && !e.isComposing) saveCareer(); if(e.key==="Escape") closeCareer(); });
+$("careerModal").addEventListener("mousedown", e => { if(e.target === $("careerModal")) closeCareer(); });
+
 // ---------- 자동 저장 (실시간 보존) ----------
 function queueSave(){ setStatus("저장 중…"); clearTimeout(timer); timer = setTimeout(saveNow, 600); }
 async function saveNow(){
@@ -235,7 +270,7 @@ $("submit").onclick = async () => {
   await saveNow();
   try{
     await fetch(SCRIPT_URL, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" },
-      body: JSON.stringify({ sid:user.sid, name:user.name, grades:data }) });
+      body: JSON.stringify({ sid:user.sid, name:user.name, career, grades:data }) });
     await setDoc(doc(db, "matrix", user.sid), { submittedAt:Date.now() }, { merge:true });
     $("subMsg").textContent = ""; show("done");
   }catch(e){ $("subMsg").style.color = ""; $("subMsg").textContent = "제출에 실패했습니다. 다시 시도하세요."; }

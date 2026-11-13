@@ -55,7 +55,7 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82
 .tabs button.on small{color:var(--pri)}
 /* 입력 행 */
 #tbl{display:grid;gap:10px}
-.item{display:grid;grid-template-columns:92px 1fr;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--sh);transition:border-color .15s}
+.item{display:grid;grid-template-columns:112px 1fr;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--sh);transition:border-color .15s}
 .item:focus-within{border-color:var(--pri)}
 .k{background:var(--lock);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:15px;user-select:none;-webkit-user-select:none;cursor:default;padding:10px;border-right:1px solid var(--line)}
 .k i{width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .2s}
@@ -72,8 +72,21 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82
 .row{display:flex;gap:12px}.row button{flex:1;padding:14px 8px}
 .ck path{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .5s .15s ease forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
+.k{text-align:center;word-break:keep-all;font-size:14px;line-height:1.35}
+.sec{font-size:13px;font-weight:700;color:var(--sub);margin:12px 2px 0}
+.sec:first-child{margin-top:0}
+.tcard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:var(--sh)}
+.tcard h2{margin:0 0 6px;font-size:17px}
+.gt{font-size:13px;font-weight:600;color:var(--sub);margin:14px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 13px;font-size:14px;border-radius:999px;box-shadow:none!important;line-height:1.3}
+.chip small{display:block;font-size:11px;color:var(--sub)}
+.chip.on{background:var(--pri);border-color:transparent;color:#fff;font-weight:600}
+.chip.lock{background:var(--lock);color:var(--sub);cursor:default}
+.chip:disabled{opacity:.5;cursor:not-allowed}
+.sm{padding:8px 12px;font-size:13px;border-radius:10px}
 @media(max-width:560px){.bt{display:none}.who{max-width:30vw}#logout,#careerBtn{padding:8px 11px;font-size:13px}}
-@media(max-width:480px){.item{grid-template-columns:72px 1fr}.k{font-size:14px}.row button{font-size:14px}}
+@media(max-width:480px){.item{grid-template-columns:88px 1fr}.k{font-size:14px}.row button{font-size:14px}}
 </style>
 </head>
 <body>
@@ -102,10 +115,17 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82
     <div class="steps" id="steps"><span id="s1"><b>1</b>작성</span><i></i><span id="s2"><b>2</b>검토</span><i></i><span id="s3"><b>3</b>완료</span></div>
   </div>
 
+  <div id="courses" class="wrap hide" style="padding-top:0">
+    <h1>과목 정보 받기</h1>
+    <p class="sub">이수한(이수할) 선택과목을 골라주세요. 필수 과목은 자동으로 포함돼요. 같은 과목은 3년 동안 한 번만 선택할 수 있고, 일부 과학 과목은 먼저 이수해야 선택할 수 있어요.</p>
+    <div id="cList"></div>
+    <div class="foot"><button id="cCancel" class="hide">취소</button><span class="status" id="cMsg"></span><button class="pri" id="cSave" disabled>저장하고 계속→</button></div>
+  </div>
+
   <div id="main" class="wrap hide" style="padding-top:0">
     <div class="tabs" id="tabs"></div>
     <div id="tbl"></div>
-    <div class="foot"><span class="status" id="status"></span><button class="pri" id="next">다음→</button></div>
+    <div class="foot"><div style="display:flex;gap:10px;align-items:center;min-width:0"><button id="editCourses" class="sm">과목 정보 수정</button><span class="status" id="status"></span></div><button class="pri" id="next">다음→</button></div>
   </div>
 
   <div id="review" class="wrap hide" style="padding-top:0">
@@ -150,7 +170,17 @@ const firebaseConfig = {
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqxjL0-GbxXooPsWZywnBKoyZDcB4JggX7zh-nL-vujmLZNKeXLwb_StzvaFRoXjJ8Gw/exec";
 
 const db = getFirestore(initializeApp(firebaseConfig));
-const SUBJ = {1:["국어","수학","영어","사회","과학","정보","역사"],2:["국어","수학","영어","사회","과학","정보"],3:["국어","수학","영어","사회","과학","정보"]};
+const HUM=["교육의 이해","인간과 철학","논술","인간과 심리","보건"];
+const PRE={"역학과 에너지":"물리학","전자기와 양자":"물리학","물질과 에너지":"화학","화학 반응의 세계":"화학","세포와 물질대사":"생명과학","생물의 유전":"생명과학","지구시스템과학":"지구과학","행성우주과학":"지구과학"};
+const GOF=[1,2,2,3,3];
+const TERMS=[
+{id:"y1",label:"1학년",req:["공통국어1","공통국어2","공통수학1","공통수학2","공통영어1","공통영어2","통합과학1","통합과학2","통합사회1","통합사회2","한국사1","한국사2","과탐실1","과탐실2","정보","인공지능기초","삶과 종교"],g:[{n:1,t:"예술",o:["음악","미술"]}]},
+{id:"y2s1",label:"2학년 1학기",req:["독서와 작문","대수","영어I"],g:[{n:1,t:"예술",o:["음악 연주와 창작","미술 창작"]},{n:1,o:HUM},{n:4,o:["주제 탐구 독서","인공지능 수학","영어 발표와 토론","세계시민과 지리","세계사","사회와 문화","정치","현대 사회와 윤리","물리학","화학","생명과학","지구과학","프로그래밍","일본어","중국어"]}]},
+{id:"y2s2",label:"2학년 2학기",req:["문학","미적분I","영어II"],g:[{t:"예술",a:["y2s1",0,{"음악 연주와 창작":"미술 창작","미술 창작":"음악 연주와 창작"}]},{n:1,o:HUM},{n:4,o:["매체와 의사소통","독서 토론과 글쓰기","기하","수학과 문화","심화 영어","한국지리 탐구","동아시아 역사 기행","사회와 문화","법과 사회","윤리와 사상","물리학","화학","생명과학","지구과학","역학과 에너지","물질과 에너지","세포와 물질대사","지구시스템과학","정보과학","소프트웨어와 생활","일본어 회화","중국어 회화"]}]},
+{id:"y3s1",label:"3학년 1학기",req:["화법과 언어","확률과 통계","영어 독해와 작문"],g:[{n:1,t:"예술",o:["음악 감상과 비평","미술 감상과 비평"]},{n:4,o:["독서 토론과 글쓰기","미적분II","심화 영어 독해와 작문","도시의 미래 탐구","역사로 탐구하는 현대세계","경제","인문학과 윤리","역학과 에너지","물질과 에너지","세포와 물질대사","지구시스템과학","전자기와 양자","화학 반응의 세계","생물의 유전","행성우주과학","일본 문화","중국 문화","데이터 과학"]}]},
+{id:"y3s2",label:"3학년 2학기",req:["생애 설계와 자립"],g:[{t:"예술",a:["y3s1",0,{"음악 감상과 비평":"미술 감상과 비평","미술 감상과 비평":"음악 감상과 비평"}]},{n:3,o:["문학과 영상","언어생활 탐구","수학 과제 탐구","세계 문화와 영어","미디어 영어","사회문제 탐구","윤리문제 탐구","역사로 탐구하는 현대세계","융합과학 탐구","기후변화와 환경생태","인공지능 일반","심화 일본어","심화 중국어"]}]}
+];
+const CHE=["자율자치","동아리","진로","행동특성"];
 const $ = id => document.getElementById(id);
 let career = "", user = null, grade = 1, data = {1:{},2:{},3:{}}, timer = null;
 
@@ -189,31 +219,43 @@ $("loginBtn").onclick = async () => {
 $("logout").onclick = async () => { await saveNow(); localStorage.removeItem("sgb_user"); user = null; career = ""; closeCareer(); $("sid").value = $("sname").value = ""; show("login"); };
 
 async function enter(u){
-  user = u; $("who").textContent = `${u.sid} ${u.name}`;
+  resetSel(); coursesDone = false; user = u; $("who").textContent = `${u.sid} ${u.name}`;
   const local = JSON.parse(localStorage.getItem("sgb_data_"+u.sid) || "null");
   try{
     const s = await getDoc(doc(db, "matrix", u.sid));
     if(s.exists() && s.data().grades) data = merge(s.data().grades);
     else if(local) data = merge(local);
     career = (s.exists() && s.data().career) || localStorage.getItem("sgb_career_"+u.sid) || "";
-  }catch(e){ if(local) data = merge(local); career = localStorage.getItem("sgb_career_"+u.sid) || ""; }
-  grade = 1; setStatus(""); show("main"); render();
+    loadCourses(s.exists() ? s.data() : {}, u.sid);
+  }catch(e){ loadCourses({}, u.sid); if(local) data = merge(local); career = localStorage.getItem("sgb_career_"+u.sid) || ""; }
+  grade = 1; setStatus("");
+  if(!coursesDone){ renderCourses(); $("cCancel").classList.add("hide"); show("courses"); return; }
+  show("main"); render();
   if(!career) openCareer();
 }
 const merge = g => ({1:g[1]||{},2:g[2]||{},3:g[3]||{}});
 
 // ---------- 표 ----------
-const filledCount = g => SUBJ[g].filter(s => (data[g][s]||"").trim()).length;
-function updateTabs(){ [1,2,3].forEach(g => { const el = document.querySelector(`#tabs [data-g="${g}"] small`); if(el) el.textContent = `${filledCount(g)}/${SUBJ[g].length} 작성`; }); }
+function rowsFor(g){
+  const secs = g===1 ? [[0,"교과 세특"]] : g===2 ? [[1,"1학기 교과 세특"],[2,"2학기 교과 세특"]] : [[3,"1학기 교과 세특"],[4,"2학기 교과 세특"]];
+  const rows = [];
+  secs.forEach(([ti, sec]) => termCourses(ti).forEach(name => rows.push({sec, name})));
+  CHE.forEach(name => rows.push({sec:"창의적 체험활동", name}));
+  return rows;
+}
+const filledCount = g => rowsFor(g).filter(r => (data[g][r.name]||"").trim()).length;
+function updateTabs(){ [1,2,3].forEach(g => { const el = document.querySelector(`#tabs [data-g="${g}"] small`); if(el) el.textContent = `${filledCount(g)}/${rowsFor(g).length} 작성`; }); }
 function render(){
   $("tabs").innerHTML = [1,2,3].map(g => `<button class="${g===grade?"on":""}" data-g="${g}">${g}학년<small></small></button>`).join("");
   $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { grade = +b.dataset.g; render(); });
   updateTabs();
-  const tb = $("tbl"); tb.innerHTML = "";
-  SUBJ[grade].forEach((s, i) => {
-    const row = document.createElement("div");
+  const tb = $("tbl"); tb.innerHTML = ""; let last = "";
+  rowsFor(grade).forEach((r, i) => {
+    if(r.sec !== last){ last = r.sec; const h = document.createElement("div"); h.className = "sec"; h.textContent = r.sec; tb.appendChild(h); }
+    const s = r.name, row = document.createElement("div");
     row.className = "item";
-    row.innerHTML = `<div class="k"><i></i>${s}</div><textarea rows="2" placeholder="생기부 키워드를 입력해주세요."></textarea>`;
+    row.innerHTML = `<div class="k"><i></i><span></span></div><textarea rows="2" placeholder="생기부 키워드를 입력해주세요."></textarea>`;
+    row.querySelector(".k span").textContent = s;
     const ta = row.querySelector("textarea");
     ta.value = data[grade][s] || "";
     row.classList.toggle("filled", !!ta.value.trim());
@@ -222,13 +264,99 @@ function render(){
     ta.addEventListener("keydown", e => {
       if(e.key === "Enter" && !e.shiftKey && !e.isComposing){
         e.preventDefault();
-        const all = tb.querySelectorAll("textarea"), n = all[i+1];
+        const all = tb.querySelectorAll("textarea"), n = all[[...all].indexOf(ta)+1];
         if(n) n.focus(); else ta.blur();
       }
     });
   });
 }
 const fit = ta => { ta.style.height = "auto"; ta.style.height = Math.max(64, ta.scrollHeight) + "px"; };
+
+// ---------- 과목 정보 ----------
+const sel = {}; let coursesDone = false, snap = "";
+const resetSel = () => TERMS.forEach(t => sel[t.id] = {});
+resetSel();
+function chosen(ti, gi){
+  const t = TERMS[ti], g = t.g[gi];
+  if(g.a){ const src = ((sel[g.a[0]]||{})[g.a[1]]||[])[0]; return src ? [g.a[2][src]] : []; }
+  return ((sel[t.id]||{})[gi]||[]).slice().sort((x, y) => g.o.indexOf(x) - g.o.indexOf(y));
+}
+const termCourses = ti => [...TERMS[ti].req, ...TERMS[ti].g.flatMap((_, gi) => chosen(ti, gi))];
+const before = ti => new Set(TERMS.slice(0, ti).flatMap((_, k) => termCourses(k)));
+const elsewhere = ti => new Set(TERMS.flatMap((_, k) => k === ti ? [] : termCourses(k)));
+function prune(){
+  let ch = true;
+  while(ch){ ch = false; TERMS.forEach((t, ti) => t.g.forEach((g, gi) => {
+    if(g.a) return;
+    const cur = sel[t.id][gi] || [], ok = cur.filter(o => !PRE[o] || before(ti).has(PRE[o]));
+    if(ok.length !== cur.length){ sel[t.id][gi] = ok; ch = true; }
+  })); }
+}
+function loadCourses(d, sid){
+  resetSel();
+  const c = d.courses || JSON.parse(localStorage.getItem("sgb_courses_"+sid) || "null");
+  if(c) TERMS.forEach(t => { sel[t.id] = c[t.id] || {}; });
+  coursesDone = !!(d.coursesDone || (c && localStorage.getItem("sgb_cdone_"+sid)));
+  prune();
+}
+function chip(text, cls, sub){
+  const b = document.createElement("button"); b.className = "chip " + (cls||""); b.textContent = text;
+  if(sub){ const m = document.createElement("small"); m.textContent = sub; b.appendChild(m); }
+  if(cls === "lock") b.tabIndex = -1;
+  return b;
+}
+function pick(ti, gi, o){
+  const g = TERMS[ti].g[gi], id = TERMS[ti].id;
+  let cur = sel[id][gi] || [];
+  cur = cur.includes(o) ? cur.filter(x => x !== o) : g.n === 1 ? [o] : [...cur, o];
+  sel[id][gi] = cur; prune(); renderCourses();
+}
+function renderCourses(){
+  const y = window.scrollY, box = $("cList"); box.innerHTML = ""; let ok = true;
+  TERMS.forEach((t, ti) => {
+    const card = document.createElement("div"); card.className = "tcard";
+    card.innerHTML = `<h2></h2><div class="gt">필수 과목</div><div class="chips req"></div>`;
+    card.querySelector("h2").textContent = t.label;
+    t.req.forEach(n => card.querySelector(".req").appendChild(chip(n, "lock")));
+    const bf = before(ti), el = elsewhere(ti);
+    t.g.forEach((g, gi) => {
+      const wrap = document.createElement("div"), cs = document.createElement("div"), gt = document.createElement("div");
+      cs.className = "chips"; gt.className = "gt";
+      const cur = chosen(ti, gi);
+      if(g.a){
+        gt.textContent = `${g.t} · 이전 학기 선택에 따라 자동 선택`;
+        cur.forEach(n => cs.appendChild(chip(n, "lock")));
+        if(!cur.length) ok = false;
+      } else {
+        gt.textContent = `${g.t || "선택과목"} · ${g.n}개 선택 (${cur.length}/${g.n})`;
+        g.o.forEach(o => {
+          const on = cur.includes(o);
+          const why = el.has(o) ? "다른 학기에서 선택됨" : (PRE[o] && !bf.has(PRE[o]) ? `${PRE[o]} 먼저 이수` : "");
+          const full = !on && g.n > 1 && cur.length >= g.n;
+          const b = chip(o, on ? "on" : "", !on && why ? why : "");
+          if(!on && (why || full)) b.disabled = true;
+          b.onclick = () => pick(ti, gi, o);
+          cs.appendChild(b);
+        });
+        if(cur.length !== g.n) ok = false;
+      }
+      wrap.append(gt, cs); card.appendChild(wrap);
+    });
+    box.appendChild(card);
+  });
+  $("cSave").disabled = !ok; $("cMsg").textContent = ok ? "" : "모든 선택과목을 골라주세요.";
+  window.scrollTo(0, y);
+}
+$("editCourses").onclick = () => { snap = JSON.stringify(sel); renderCourses(); $("cCancel").classList.remove("hide"); show("courses"); };
+$("cCancel").onclick = () => { resetSel(); const o = JSON.parse(snap || "{}"); TERMS.forEach(t => sel[t.id] = o[t.id] || {}); show("main"); render(); };
+$("cSave").onclick = async () => {
+  prune(); coursesDone = true;
+  const c = JSON.parse(JSON.stringify(sel));
+  localStorage.setItem("sgb_courses_"+user.sid, JSON.stringify(c)); localStorage.setItem("sgb_cdone_"+user.sid, "1");
+  try{ await setDoc(doc(db, "matrix", user.sid), { name:user.name, courses:c, coursesDone:true }, { merge:true }); }catch(e){}
+  grade = 1; show("main"); render();
+  if(!career) openCareer();
+};
 
 // ---------- 희망 진로 ----------
 function openCareer(){ $("careerInput").value = career; $("careerModal").classList.remove("hide"); setTimeout(() => $("careerInput").focus(), 50); }
@@ -273,7 +401,7 @@ $("submit").onclick = async () => {
   await saveNow();
   try{
     await fetch(SCRIPT_URL, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" },
-      body: JSON.stringify({ sid:user.sid, name:user.name, career, grades:data }) });
+      body: JSON.stringify({ sid:user.sid, name:user.name, career, cols:TERMS.flatMap((_, ti) => termCourses(ti).map(n => ({n, g:GOF[ti]}))), grades:data }) });
     await setDoc(doc(db, "matrix", user.sid), { submittedAt:Date.now() }, { merge:true });
     $("subMsg").textContent = ""; show("done");
   }catch(e){ $("subMsg").style.color = ""; $("subMsg").textContent = "제출에 실패했습니다. 다시 시도하세요."; }

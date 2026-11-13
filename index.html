@@ -184,13 +184,15 @@ const CHE=["자율자치","동아리","진로","행동특성"];
 const $ = id => document.getElementById(id);
 let career = "", user = null, grade = 1, data = {1:{},2:{},3:{}}, timer = null;
 
-const STEP = {main:1, review:2, done:3};
+// [수정 1] courses 화면도 1단계(작성)로 처리
+const STEP = {courses:1, main:1, review:2, done:3};
 function show(v){
   const inApp = v !== "login";
   $("login").classList.toggle("hide", inApp);
   $("hdr").classList.toggle("hide", !inApp);
   $("app").classList.toggle("hide", !inApp);
-  ["main","review","done"].forEach(x => $(x).classList.toggle("hide", x !== v));
+  // [수정 2] courses 화면을 목록에 추가
+  ["courses","main","review","done"].forEach(x => $(x).classList.toggle("hide", x !== v));
   if(inApp){ [1,2,3].forEach(n => { const e = $("s"+n); e.className = n === STEP[v] ? "on" : n < STEP[v] ? "done" : ""; }); window.scrollTo(0,0); }
 }
 const setStatus = t => $("status").textContent = t;

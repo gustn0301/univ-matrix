@@ -181,17 +181,19 @@ const TERMS=[
 {id:"y3s2",label:"3학년 2학기",req:["생애 설계와 자립"],g:[{t:"예술",a:["y3s1",0,{"음악 감상과 비평":"미술 감상과 비평","미술 감상과 비평":"음악 감상과 비평"}]},{n:3,t:"선택과목 A",o:["문학과 영상","언어생활 탐구","수학 과제 탐구","세계 문화와 영어","미디어 영어"]},{n:3,t:"선택과목 B",o:["사회문제 탐구","윤리문제 탐구","역사로 탐구하는 현대세계","융합과학 탐구","기후변화와 환경생태","인공지능 일반","심화 일본어","심화 중국어"]}]}
 ];
 const CHE=["자율자치","동아리","진로","행동특성"];
+// 입력칸 묶음: 공통국어1·2 처럼 1,2를 한 칸으로
+const GROUP = {};
+["공통국어","공통수학","공통영어","통합과학","통합사회","한국사","과탐실"].forEach(b => { GROUP[b+"1"] = GROUP[b+"2"] = b+"1·2"; });
+const gname = n => GROUP[n] || n;
 const $ = id => document.getElementById(id);
 let career = "", user = null, grade = 1, data = {1:{},2:{},3:{}}, timer = null;
 
-// [수정 1] courses 화면도 1단계(작성)로 처리
 const STEP = {courses:1, main:1, review:2, done:3};
 function show(v){
   const inApp = v !== "login";
   $("login").classList.toggle("hide", inApp);
   $("hdr").classList.toggle("hide", !inApp);
   $("app").classList.toggle("hide", !inApp);
-  // [수정 2] courses 화면을 목록에 추가
   ["courses","main","review","done"].forEach(x => $(x).classList.toggle("hide", x !== v));
   if(inApp){ [1,2,3].forEach(n => { const e = $("s"+n); e.className = n === STEP[v] ? "on" : n < STEP[v] ? "done" : ""; }); window.scrollTo(0,0); }
 }
@@ -241,7 +243,7 @@ const merge = g => ({1:g[1]||{},2:g[2]||{},3:g[3]||{}});
 function rowsFor(g){
   const secs = g===1 ? [[0,"교과 세특"]] : g===2 ? [[1,"1학기 교과 세특"],[2,"2학기 교과 세특"]] : [[3,"1학기 교과 세특"],[4,"2학기 교과 세특"]];
   const rows = [];
-  secs.forEach(([ti, sec]) => termCourses(ti).forEach(name => rows.push({sec, name})));
+  secs.forEach(([ti, sec]) => rowCourses(ti).forEach(name => rows.push({sec, name})));
   CHE.forEach(name => rows.push({sec:"창의적 체험활동", name}));
   return rows;
 }
@@ -284,6 +286,7 @@ function chosen(ti, gi){
   return ((sel[t.id]||{})[gi]||[]).slice().sort((x, y) => g.o.indexOf(x) - g.o.indexOf(y));
 }
 const termCourses = ti => [...TERMS[ti].req, ...TERMS[ti].g.flatMap((_, gi) => chosen(ti, gi))];
+const rowCourses = ti => [...new Set(termCourses(ti).map(gname))];
 const before = ti => new Set(TERMS.slice(0, ti).flatMap((_, k) => termCourses(k)));
 const elsewhere = ti => new Set(TERMS.flatMap((_, k) => k === ti ? [] : termCourses(k)));
 function prune(){
@@ -403,7 +406,7 @@ $("submit").onclick = async () => {
   await saveNow();
   try{
     await fetch(SCRIPT_URL, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" },
-      body: JSON.stringify({ sid:user.sid, name:user.name, career, cols:TERMS.flatMap((_, ti) => termCourses(ti).map(n => ({n, g:GOF[ti]}))), grades:data }) });
+      body: JSON.stringify({ sid:user.sid, name:user.name, career, cols:TERMS.flatMap((_, ti) => rowCourses(ti).map(n => ({n, g:GOF[ti]}))), grades:data }) });
     await setDoc(doc(db, "matrix", user.sid), { submittedAt:Date.now() }, { merge:true });
     $("subMsg").textContent = ""; show("done");
   }catch(e){ $("subMsg").style.color = ""; $("subMsg").textContent = "제출에 실패했습니다. 다시 시도하세요."; }
